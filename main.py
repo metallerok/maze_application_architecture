@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from abc import ABC, abstractmethod
 from enum import Enum
 
@@ -37,13 +37,13 @@ class Room(MapSite):
 
 class EnchantedRoom(Room):
     def __init__(self, room_no: int, locked: bool):
-        self._room_number = room_no
         self._locked = locked
+        super().__init__(room_no)
 
 
 class RoomWithBomb(Room):
     have_bomb = False
-    is_destroed = False
+    is_destroyed = False
 
 
 class Wall(MapSite):
@@ -53,7 +53,7 @@ class Wall(MapSite):
 
 
 class BombedWall(Wall):
-    is_destroed: bool = False
+    is_destroyed: bool = False
 
 
 class Door(MapSite):
@@ -91,7 +91,7 @@ class MazeFactory:
 
     @classmethod
     def make_wall(cls) -> Wall:
-        return Wall
+        return Wall()
 
     @classmethod
     def make_room(cls, n: int) -> Room:
@@ -109,7 +109,7 @@ class EnchantedMazeFactory(MazeFactory):
         return EnchantedRoom(n, cls._cast_spell())
 
     @classmethod
-    def _cast_spell(cls):
+    def _cast_spell(cls) -> bool:
         pass
 
 
@@ -124,9 +124,58 @@ class BombedMazeFactory(MazeFactory):
         return RoomWithBomb(n)
 
 
+class MazeBuilder:
+    def build_maze(self):
+        pass
+
+    def build_room(self, n: int):
+        pass
+
+    def build_door(self, room_from: int, room_to: int):
+        pass
+
+    def get_maze(self) -> Maze:
+        pass
+
+
+class StdMazeBuilder(MazeBuilder):
+    def __init__(self):
+        self._current_maze: Optional[Maze] = None
+
+    def _common_wall(self, r1, r2) -> Direction:
+        pass
+
+    def build_maze(self):
+        self._current_maze = Maze()
+
+    def get_maze(self) -> Maze:
+        return self._current_maze
+
+    def build_room(self, n: int):
+        if self._current_maze.room_no(n) is None:
+            room: Room = Room(n)
+
+            self._current_maze.add_room(room)
+
+            room.set_side(Direction.North, Wall())
+            room.set_side(Direction.East, Wall())
+            room.set_side(Direction.South, Wall())
+            room.set_side(Direction.West, Wall())
+
+    def build_door(self, room_from: int, room_to: int):
+        r1 = self._current_maze.room_no(room_from)
+        r2 = self._current_maze.room_no(room_to)
+
+        door: Door = Door(r1, r2)
+
+        r1.set_side(self._common_wall(r1, r2), door)
+        r2.set_side(self._common_wall(r2, r2), door)
+
+
 class MazeGame:
 
-    def create_maze(self, factory: MazeFactory) -> Maze:
+    @staticmethod
+    def create_maze(factory: MazeFactory) -> Maze:
         maze: Maze = factory.make_maze()
         r1: Room = factory.make_room(1)
         r2: Room = factory.make_room(2)
@@ -147,4 +196,12 @@ class MazeGame:
 
         return maze
 
+    @staticmethod
+    def create_maze_from_builder(builder: MazeBuilder):
+        builder.build_maze()
 
+        builder.build_room(1)
+        builder.build_room(2)
+        builder.build_door(1, 2)
+
+        return builder.get_maze()
