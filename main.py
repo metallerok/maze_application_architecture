@@ -1,6 +1,7 @@
 from typing import Dict, Optional
 from abc import ABC, abstractmethod
 from enum import Enum
+from copy import deepcopy
 
 
 class Direction(Enum):
@@ -34,6 +35,12 @@ class Room(MapSite):
     def enter(self) -> None:
         pass
 
+    def clone(self):
+        return deepcopy(self)
+
+    def initialize(self, n):
+        self._room_number = n
+
 
 class EnchantedRoom(Room):
     def __init__(self, room_no: int, locked: bool):
@@ -50,6 +57,9 @@ class Wall(MapSite):
     
     def enter(self) -> None:
         pass
+
+    def clone(self):
+        return deepcopy(self)
 
 
 class BombedWall(Wall):
@@ -70,6 +80,13 @@ class Door(MapSite):
     def enter(self) -> None:
         pass
 
+    def clone(self):
+        return deepcopy(self)
+
+    def initialize(self, r1, r2):
+        self._room1 = r1
+        self._room2 = r2
+
 
 class Maze:
     
@@ -81,6 +98,9 @@ class Maze:
         Get room by number
         """
         pass
+
+    def clone(self):
+        return deepcopy(self)
 
 
 class MazeFactory:
@@ -122,6 +142,30 @@ class BombedMazeFactory(MazeFactory):
     @classmethod
     def make_room(cls, n: int) -> Room:
         return RoomWithBomb(n)
+
+
+class MazePrototypeFactory(MazeFactory):
+    def __init__(self, m: Maze, w: Wall, r: Room, d: Door):
+        self._prototype_maze = m
+        self._prototype_wall = w
+        self._prototype_room = r
+        self._prototype_door = d
+
+    def make_maze(self):
+        self._prototype_maze.clone()
+
+    def make_room(self, n):
+        room = self._prototype_room.clone()
+        room.initialize(n)
+        return room
+
+    def make_door(self, r1, r2):
+        door = self._prototype_door.clone()
+        door.initialize(r1, r2)
+        return door
+
+    def make_wall(self):
+        return self._prototype_wall.clone()
 
 
 class MazeBuilder:
@@ -175,7 +219,23 @@ class StdMazeBuilder(MazeBuilder):
 class MazeGame:
 
     @staticmethod
-    def create_maze(factory: MazeFactory) -> Maze:
+    def make_maze() -> Maze:
+        return Maze()
+
+    @staticmethod
+    def make_room(n: int) -> Room:
+        return Room(n)
+
+    @staticmethod
+    def make_wall() -> Wall:
+        return Wall()
+
+    @staticmethod
+    def make_door(r1: Room, r2: Room) -> Door:
+        return Door(r1, r2)
+
+    @staticmethod
+    def create_maze_by_abstract_factory(factory: MazeFactory) -> Maze:
         maze: Maze = factory.make_maze()
         r1: Room = factory.make_room(1)
         r2: Room = factory.make_room(2)
@@ -205,3 +265,26 @@ class MazeGame:
         builder.build_door(1, 2)
 
         return builder.get_maze()
+
+    def create_maze_by_fabric_method(self) -> Maze:
+        maze = self.make_maze()
+
+        r1 = self.make_room(1)
+        r2 = self.make_room(2)
+
+        door = self.make_door(r1, r2)
+
+        maze.add_room(r1)
+        maze.add_room(r2)
+
+        r1.set_side(Direction.North, self.make_wall())
+        r1.set_side(Direction.East, door)
+        r1.set_side(Direction.South, self.make_wall())
+        r1.set_side(Direction.West, self.make_wall())
+
+        r1.set_side(Direction.North, self.make_wall())
+        r1.set_side(Direction.East, self.make_wall())
+        r1.set_side(Direction.South, self.make_wall())
+        r1.set_side(Direction.West, door)
+
+        return maze
